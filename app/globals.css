@@ -5,3 +5,33 @@
 body {
   @apply bg-slate-50 text-slate-800;
 }
+
+/* 打印 / 另存为 PDF：只保留文章与题目，隐藏导航和各种操作按钮 */
+@media print {
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  mark {
+    background: transparent !important;
+    color: #000 !important;
+    font-weight: 700;
+  }
+
+  button:disabled {
+    border-color: #ddd !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

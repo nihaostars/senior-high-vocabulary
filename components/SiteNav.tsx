@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/learn", label: "学习" },
   { href: "/review", label: "课后复习" },
   { href: "/progress", label: "学习进度" },
+  { href: "/reading", label: "语境阅读" },
 ];
 
 export default function SiteNav() {
