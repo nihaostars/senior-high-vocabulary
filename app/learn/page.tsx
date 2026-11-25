@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { db, markLearning, reviewForgot } from "@/lib/db";
-import { wordMap, wordsError, type Word } from "@/lib/words";
+import { getWordMap, getWordsError, type Word } from "@/lib/words";
 import { playAudio } from "@/lib/speech";
+import { useLevel } from "@/components/useLevel";
 
 const GROUP_SIZE = 5;
 
@@ -14,6 +15,7 @@ type TestMark = "know" | "unknown";
 
 export default function LearnPage() {
   const router = useRouter();
+  const { level } = useLevel();
   const [view, setView] = useState<View>("learn");
   const [groupIndex, setGroupIndex] = useState(0);
   const [clickStates, setClickStates] = useState<Record<string, number>>({});
@@ -24,21 +26,27 @@ export default function LearnPage() {
   const [soundOn, setSoundOn] = useState(true);
   const [studyWords, setStudyWords] = useState<Word[] | null>(null);
 
-  // 只读取 IndexedDB 中 status === 'pending_learn' 的单词（快照）
-  // 每天最多取 20 个待学词，避免一次性加载过多
+  // 只读取当前词库中 status === 'pending_learn' 的单词（快照）
+  // 每次最多取 20 个待学词，避免一次性加载过多
   useEffect(() => {
     (async () => {
-      const records = await db.records
-        .where("status")
-        .equals("pending_learn")
-        .limit(20)
-        .toArray();
+      const records = await db.records.where("level").equals(level).toArray();
+      const map = getWordMap(level);
       const list = records
-        .map((r) => wordMap.get(r.id))
+        .filter((r) => r.status === "pending_learn")
+        .slice(0, 20)
+        .map((r) => map.get(r.id))
         .filter((w): w is Word => Boolean(w));
+      // 切换词库时重置所有视图状态
+      setGroupIndex(0);
+      setClickStates({});
+      setActiveId(null);
+      setTestMarks({});
+      setIsFinalTest(false);
+      setView("learn");
       setStudyWords(list);
     })();
-  }, []);
+  }, [level]);
 
   const groups = useMemo(() => {
     if (!studyWords) return [];
@@ -48,6 +56,8 @@ export default function LearnPage() {
     }
     return result;
   }, [studyWords]);
+
+  const wordsError = getWordsError(level);
 
   if (wordsError) {
     return (
@@ -123,13 +133,13 @@ export default function LearnPage() {
       playAudio(word.word);
     }
     if (mark === "know") {
-      await markLearning(word.id); // pending_learn -> learning -> 进复习池
+      await markLearning(word.id, level); // pending_learn -> learning -> 进复习池
     } else {
-      await reviewForgot(word.id); // pending_learn -> forgotten -> 进复习池
+      await reviewForgot(word.id, level); // pending_learn -> forgotten -> 进复习池
     }
     // 当前组的新词赋予本组批次号（混合测试中的旧组词保留原批次）
     if (currentGroup.some((w) => w.id === word.id)) {
-      await db.records.update(word.id, { batchId });
+      await db.records.update([level, word.id], { batchId });
     }
   };
 

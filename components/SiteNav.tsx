@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLevel } from "@/components/useLevel";
+import { LEVELS } from "@/lib/level";
 
 const NAV_ITEMS = [
   { href: "/", label: "首页" },
@@ -14,6 +16,7 @@ const NAV_ITEMS = [
 
 export default function SiteNav() {
   const pathname = usePathname();
+  const { level, setLevel } = useLevel();
 
   return (
     <nav className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur">
@@ -35,6 +38,18 @@ export default function SiteNav() {
             </Link>
           );
         })}
+        <select
+          value={level}
+          onChange={(e) => setLevel(e.target.value as "senior" | "junior")}
+          className="ml-auto cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-base font-semibold text-slate-700 hover:bg-slate-50"
+          title="切换词库"
+        >
+          {LEVELS.map((l) => (
+            <option key={l.value} value={l.value}>
+              {l.label}
+            </option>
+          ))}
+        </select>
       </div>
     </nav>
   );

@@ -1,13 +1,23 @@
+"use client";
+
 import Link from "next/link";
-import { words } from "@/lib/words";
+import { useLevel } from "@/components/useLevel";
+import { getWords } from "@/lib/words";
+import { LEVELS } from "@/lib/level";
 
 export default function HomePage() {
+  const { level } = useLevel();
+  const total = getWords(level).length;
+  const label = LEVELS.find((l) => l.value === level)?.label ?? "高中词汇";
+
   return (
     <div className="flex flex-col items-center gap-10 py-10 text-center">
       <div>
-        <h1 className="text-3xl font-bold sm:text-4xl">高中英语单词学习</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">
+          {label} · 单词学习
+        </h1>
         <p className="mt-4 text-xl text-slate-500">
-          词库共 <span className="font-bold text-blue-600">{words.length}</span> 个单词
+          词库共 <span className="font-bold text-blue-600">{total}</span> 个单词
         </p>
       </div>
       <div className="flex w-full max-w-md flex-col gap-4">

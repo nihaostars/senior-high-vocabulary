@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, markPendingLearn, markMastered } from "@/lib/db";
-import { words, wordsError, sampleRandom, type Word } from "@/lib/words";
+import { getWords, getWordsError, sampleRandom, type Word } from "@/lib/words";
 import { playAudio } from "@/lib/speech";
+import { useLevel } from "@/components/useLevel";
 
 const SAMPLE_COUNT = 50;
 
@@ -12,22 +13,26 @@ type Mark = "know" | "unknown" | null;
 
 export default function PretestPage() {
   const router = useRouter();
+  const { level } = useLevel();
   const [list, setList] = useState<Word[] | null>(null);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   // 每个单词的三态：0 仅英文 -> 1 仅英文+发音 -> 2 英文+释义+发音 -> 0
   const [clickStates, setClickStates] = useState<Record<string, number>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // 词汇池：仅取 IndexedDB 中完全没有记录的新词，随机抽 50 个
+  // 词汇池：仅取当前词库中 IndexedDB 完全没有记录的新词，随机抽 50 个
   useEffect(() => {
     (async () => {
-      const records = await db.records.toArray();
+      const records = await db.records.where("level").equals(level).toArray();
       const hasRecord = new Set(records.map((r) => r.id));
-      const fresh = words.filter((w) => !hasRecord.has(w.id));
+      const fresh = getWords(level).filter((w) => !hasRecord.has(w.id));
+      // 切换词库时清空旧选择
+      setMarks({});
+      setClickStates({});
       // 部分洗牌抽样：只随机取 50 个，不全量打乱、不全量渲染
       setList(sampleRandom(fresh, SAMPLE_COUNT));
     })();
-  }, []);
+  }, [level]);
 
   const handleMark = (word: Word, mark: Exclude<Mark, null>) => {
     // 只改 UI 状态，不写 IndexedDB；再次点击同一按钮取消标记
@@ -44,13 +49,15 @@ export default function PretestPage() {
     for (const word of list ?? []) {
       const mark = marks[word.id];
       if (mark === "unknown") {
-        await markPendingLearn(word.id);
+        await markPendingLearn(word.id, level);
       } else if (mark === "know") {
-        await markMastered(word.id);
+        await markMastered(word.id, level);
       }
     }
     router.push("/learn");
   };
+
+  const wordsError = getWordsError(level);
 
   if (wordsError) {
     return (

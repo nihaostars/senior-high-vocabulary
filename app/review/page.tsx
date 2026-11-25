@@ -6,8 +6,9 @@ import {
   reviewKnow,
   reviewForgot,
 } from "@/lib/db";
-import { wordMap, type Word } from "@/lib/words";
+import { getWordMap, type Word } from "@/lib/words";
 import { playAudio } from "@/lib/speech";
+import { useLevel } from "@/components/useLevel";
 
 type Mark = "know" | "unknown";
 
@@ -22,22 +23,25 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function ReviewPage() {
+  const { level } = useLevel();
   const [queue, setQueue] = useState<Word[] | null>(null);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
   const [soundOn, setSoundOn] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [finished, setFinished] = useState(false);
 
-  // 进入页面时读取复习池并打乱（快照）
+  // 进入页面时读取当前词库的复习池并打乱（快照）
   useEffect(() => {
     (async () => {
-      const ids = await buildReviewPoolIds();
+      const ids = await buildReviewPoolIds(level);
       const pool = ids
-        .map((id) => wordMap.get(id))
+        .map((id) => getWordMap(level).get(id))
         .filter((w): w is Word => Boolean(w));
+      setMarks({});
+      setFinished(false);
       setQueue(shuffle(pool));
     })();
-  }, []);
+  }, [level]);
 
   if (queue === null) {
     return <p className="py-20 text-center text-xl text-slate-400">加载中…</p>;
@@ -81,9 +85,9 @@ export default function ReviewPage() {
     for (const word of queue) {
       const mark = marks[word.id];
       if (mark === "know") {
-        await reviewKnow(word.id); // +1，达到 3 次自动 mastered
+        await reviewKnow(word.id, level); // +1，达到 3 次自动 mastered
       } else if (mark === "unknown") {
-        await reviewForgot(word.id); // forgotten，reviewCount 归零
+        await reviewForgot(word.id, level); // forgotten，reviewCount 归零
       }
       // 未选择的词保持原样，继续留在复习池
     }

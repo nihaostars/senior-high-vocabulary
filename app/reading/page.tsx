@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { db, type WordRecord } from "@/lib/db";
-import { wordMap, type Word } from "@/lib/words";
+import { getWordMap, type Word } from "@/lib/words";
+import { useLevel } from "@/components/useLevel";
 
 interface Question {
   id?: number;
@@ -51,6 +52,7 @@ function renderArticle(article: string, words: string[]) {
 }
 
 export default function ReadingPage() {
+  const { level } = useLevel();
   const [words, setWords] = useState<Word[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set()); // 存 word.id
   const [loading, setLoading] = useState(false);
@@ -59,20 +61,26 @@ export default function ReadingPage() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showAnswers, setShowAnswers] = useState(false);
 
-  // 读取今天学过的词（learning / forgotten），为空则退化为所有学过的词
+  // 读取当前词库今天学过的词（learning / forgotten），为空则退化为所有学过的词
   useEffect(() => {
     (async () => {
-      const records = await db.records.toArray();
+      const records = await db.records.where("level").equals(level).toArray();
+      const map = getWordMap(level);
       const pick = (list: WordRecord[]) =>
-        list.map((r) => wordMap.get(r.id)).filter((w): w is Word => Boolean(w));
+        list.map((r) => map.get(r.id)).filter((w): w is Word => Boolean(w));
       const active = records.filter(
         (r) => r.status === "learning" || r.status === "forgotten"
       );
       const list = active.length > 0 ? pick(active) : pick(records);
+      // 切换词库时清空旧结果
+      setResult(null);
+      setError(null);
+      setAnswers({});
+      setShowAnswers(false);
       setWords(list);
       setSelected(new Set(list.map((w) => w.id))); // 默认全选，最省操作
     })();
-  }, []);
+  }, [level]);
 
   const selectedWords = useMemo(
     () => (words ?? []).filter((w) => selected.has(w.id)),
